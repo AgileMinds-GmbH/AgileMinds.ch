@@ -1,0 +1,11 @@
+{
+  "name": "test-email",
+  "version": "1.0.0",
+  "description": "Test email function",
+  "main": "test-email.ts",
+  "dependencies": {
+    "@netlify/functions": "^2.6.0",
+    "@supabase/supabase-js": "^2.39.3",
+    "nodemailer": "^6.9.9"
+  }
+}

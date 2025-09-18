@@ -1,0 +1,10 @@
+{
+  "name": "test-cors",
+  "version": "1.0.0",
+  "description": "Test CORS configuration",
+  "main": "test-cors.ts",
+  "dependencies": {
+    "@netlify/functions": "^2.6.0",
+    "@types/node": "^20.11.19"
+  }
+}
