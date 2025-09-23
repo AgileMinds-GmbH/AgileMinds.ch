@@ -7,14 +7,8 @@ import CourseDetailsModal from '../components/CourseDetailsModal';
 import { sendBookingEmails } from '../services/emailService';
 import { AlertCircle, Loader } from 'lucide-react';
 import { useGetCourseListQuery } from '../redux/rtk/course';
-import { Course } from '../types/course';
-interface BookingFormData {
-  tickets: number;
-  fullName: string;
-  email: string;
-  phone: string;
-  specialRequirements: string;
-}
+import { BookingFormData, Course } from '../types/course';
+
 
 export default function Courses() {
   const [page, setPage] = useState(0);
@@ -22,7 +16,6 @@ export default function Courses() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const PAGE_SIZE = 6;
-  const [totalCourses, setTotalCourses] = useState(0);
 
   // Filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,18 +33,6 @@ export default function Courses() {
   } | null>(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const { data: courses, isLoading: courseLoader } = useGetCourseListQuery({ page: 1, limit: 10 });
-
-  // Helper function to get random image ID for placeholder thumbnails
-  const getRandomImageId = () => {
-    const imageIds = [
-      '1516321318423-f06f85e504b3',
-      '1454165804606-c3d57bc86b40',
-      '1581092160607-7744d3e5a836',
-      '1517694712202-14dd9538aa97',
-      '1526374965328-7f61d4dc18c5'
-    ];
-    return imageIds[Math.floor(Math.random() * imageIds.length)];
-  };
 
   // Reset page when filters change
   React.useEffect(() => {
@@ -150,8 +131,8 @@ export default function Courses() {
       id: dbCourse.id,
       title: dbCourse.title,
       description: dbCourse.description,
-      thumbnail: `https://images.unsplash.com/photo-${getRandomImageId()}?w=800&h=450&fit=crop&q=80`,
-      logo:  'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=64&h=64&fit=crop&q=80',
+      thumbnail: dbCourse.thumbnail_url,
+      logo: dbCourse.logo_url,
       learning_objectives: dbCourse.learning_objectives || [],
       prerequisites: dbCourse.prerequisites || [],
       early_bird_price: dbCourse.early_bird_price ? Number(dbCourse.early_bird_price) : undefined,
@@ -207,12 +188,11 @@ export default function Courses() {
       const dateB = new Date(b.startDate);
       return dateA.getTime() - dateB.getTime();
     });
-
     // Return all filtered courses
     return sortedCourses;
-  }, [searchTerm, priceRange, selectedCategories, dateRange, selectedLanguages, showEarlyBirdOnly,courses]);
+  }, [searchTerm, priceRange, selectedCategories, dateRange, selectedLanguages, showEarlyBirdOnly, courses]);
 
- // Handle loading more courses
+  // Handle loading more courses
   const handleLoadMore = async () => {
     if (!isLoading && hasMore) {
       setPage(prev => prev + 1);

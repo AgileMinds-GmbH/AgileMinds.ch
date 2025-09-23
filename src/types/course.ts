@@ -24,7 +24,7 @@ export interface Course {
   thumbnail?: string;
   startDate?: string;
   endDate?: string;
-  price?: number;
+  price?: number | undefined;
   language?: string;
   status?: 'draft' | 'published' | 'archived' | 'published' | 'unpublished' | 'expired' | 'deleted';
   metaTitle?: string;
@@ -41,10 +41,19 @@ export interface Course {
   logoUrl?: string;
   createdAt?: string;
   updatedAt?: string;
-  time?:string | undefined;
+  time?: string | undefined;
 }
 
 export interface GetCourseListRequest {
   page?: number;
   limit?: number;
+}
+
+
+export interface BookingFormData {
+  tickets: number;
+  fullName: string;
+  email: string;
+  phone: string;
+  specialRequirements: string;
 }
