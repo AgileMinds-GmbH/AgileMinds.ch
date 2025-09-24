@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabase';
 import SearchBar from '../components/SearchBar';
 import FilterPanel from '../components/filters/FilterPanel';
 import BookingModal from '../components/BookingModal';
 import CourseDetailsModal from '../components/CourseDetailsModal';
-import { sendBookingEmails } from '../services/emailService';
 import { AlertCircle, Loader } from 'lucide-react';
 import { useGetCourseListQuery } from '../redux/rtk/course';
 import { BookingFormData, Course } from '../types/course';
+import { useCreateBookingMutation } from '../redux/rtk/booking';
 
 
 export default function Courses() {
@@ -33,6 +32,7 @@ export default function Courses() {
   } | null>(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const { data: courses, isLoading: courseLoader } = useGetCourseListQuery({ page: 1, limit: 10 });
+  const [createBooking] = useCreateBookingMutation();
 
   // Reset page when filters change
   React.useEffect(() => {
@@ -47,50 +47,24 @@ export default function Courses() {
   ]);
 
   // Debounce search term changes
-
   const handleBookingSubmit = async (formData: BookingFormData) => {
     if (!selectedCourse) return;
 
-    setIsLoading(true);
+    const body = {
+      course_id: selectedCourse.id,
+      tickets: formData.tickets,
+      fullName: formData.fullName,
+      email: formData.email,
+      phone: formData.phone,
+      specialRequirements: formData.specialRequirements
+    }
+
     try {
-      // Generate confirmation number first
-      const confirmationNumber = await sendBookingEmails(selectedCourse, formData);
-
-      // Create an array of enrollment records based on number of tickets
-      const enrollments = Array(formData.tickets).fill({
-        course_id: selectedCourse.id,
-        full_name: formData.fullName,
-        email: formData.email,
-        phone: formData.phone,
-        special_requirements: formData.specialRequirements,
-        payment_status: 'pending',
-        confirmation_number: confirmationNumber
-      });
-
-      // Insert multiple enrollments into database
-      const { error: enrollmentError } = await supabase
-        .from('enrollments')
-        .insert(enrollments);
-
-      if (enrollmentError) throw enrollmentError;
-
-      setNotification({
-        type: 'success',
-        message: `Booking confirmed! Confirmation number: ${confirmationNumber}. Check your email for details.`
-      });
+      await createBooking(body).unwrap();
       setSelectedCourse(null);
     } catch (error) {
       console.error('Booking error:', error);
-      setNotification({
-        type: 'error',
-        message: 'Failed to process booking. Please try again or contact support.'
-      });
-    } finally {
-      setIsLoading(false);
     }
-
-    // Clear notification after 5 seconds
-    setTimeout(() => setNotification(null), 5000);
   };
 
   // Load saved language preference
@@ -128,7 +102,7 @@ export default function Courses() {
 
   const filteredCourses = React.useMemo(() => {
     const allCourses = courses?.map(dbCourse => ({
-      id: dbCourse.id,
+      id: dbCourse._id,
       title: dbCourse.title,
       description: dbCourse.description,
       thumbnail: dbCourse.thumbnail_url,
@@ -145,7 +119,7 @@ export default function Courses() {
       price: Number(dbCourse.price),
       instructor: dbCourse.instructor_id || 'TBA',
       spotsAvailable: dbCourse.spots_available,
-      categories: dbCourse.meta_keywords || [],
+      categories: dbCourse?.meta_keywords || [],
       language: dbCourse.language as 'en' | 'de',
       skillLevel: dbCourse.skill_level as 'beginner' | 'intermediate' | 'advanced',
       status: dbCourse?.status as 'published' | 'unpublished' | 'expired' | 'deleted'
@@ -155,7 +129,7 @@ export default function Courses() {
       const searchMatch = !searchTerm ||
         course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         course.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.categories.some(cat => cat?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        course.categories?.some((cat: string) => cat.toLowerCase().includes(searchTerm.toLowerCase())) ||
         course.title.toLowerCase().includes('ai for product owner');
 
       const priceMatch = course.price >= priceRange[0] && course.price <= priceRange[1];
@@ -209,7 +183,7 @@ export default function Courses() {
             onChange={setSearchTerm}
             placeholder="Search courses by title, description, or category..."
             activeFiltersCount={activeFiltersCount}
-            isOpen={isFilterOpen}
+            isFilterOpen={isFilterOpen}
             onFilterClick={() => setIsFilterOpen(!isFilterOpen)}
           />
 

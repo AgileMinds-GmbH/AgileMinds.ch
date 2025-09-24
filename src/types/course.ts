@@ -1,4 +1,5 @@
 export interface Course {
+  _id: any;
   skill_level: "beginner" | "intermediate" | "advanced";
   meta_keywords: never[];
   spots_available: any;
