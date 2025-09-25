@@ -14,7 +14,7 @@ RUN npm install
 COPY . .
 
 # Expose port 8080
-EXPOSE 8080
+EXPOSE 9000
 
 # Start React dev server on port 8080
 CMD ["npm", "start"]
