@@ -19,4 +19,5 @@ COPY . .
 EXPOSE 9000
 
 # Start React dev server on port 9000
-CMD ["npm", "run", "preview", "--", "--port", "9000", "--host"]
+#CMD ["npm", "run", "preview", "--", "--port", "9000", "--host"]
+CMD ["npm", "run", "preview"]
