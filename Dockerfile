@@ -23,4 +23,6 @@ RUN npm install -g serve
 EXPOSE 9000
 
 # Serve the built app
-CMD ["serve", "-s", "dist", "-l", "9000"]
+#CMD ["serve", "-s", "dist", "-l", "9000"]
+
+CMD ["serve", "-s", "dist", "-l", "9000", "--single"]
