@@ -9,14 +9,18 @@ COPY package*.json ./
 
 # Install dependencies
 RUN npm install
-RUN npm install -g vite
-
 
 # Copy source code
 COPY . .
 
+# Build the app
+RUN npm run build
+
+# Install serve globally to serve static files
+RUN npm install -g serve
+
 # Expose port 9000
 EXPOSE 9000
 
-# Start React dev server on port 9000
-CMD ["npm", "run", "preview", "--", "--port", "9000", "--host"]
+# Serve the built app
+CMD ["serve", "-s", "dist", "-l", "9000"]
