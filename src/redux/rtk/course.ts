@@ -1,3 +1,4 @@
+import { ApiResponse } from '../../types/common';
 import { Course, GetCourseListRequest } from '../../types/course';
 import { api } from './rtkApi';
 
@@ -14,8 +15,8 @@ export const courseApi = enhancedApi.injectEndpoints({
                 params,
             }),
             providesTags: ['CourseList'],
-            transformResponse: (res: Course[]) =>
-                res?.map((c) => ({
+            transformResponse: (res: ApiResponse<Course[]>) =>
+                res?.data?.map((c) => ({
                     ...c,
                     spotsAvailable: c.spotsAvailable ?? c.spotsAvailable,
                     skillLevel: c.skillLevel ?? c.skillLevel,
