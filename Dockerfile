@@ -13,8 +13,8 @@ RUN npm install
 # Copy source code
 COPY . .
 
-# Expose port 8080
+# Expose port 9000
 EXPOSE 9000
 
-# Start React dev server on port 8080
-CMD ["npm", "start"]
+# Start React dev server on port 9000
+CMD ["npm", "run", "preview", "--", "--port", "9000", "--host"]
