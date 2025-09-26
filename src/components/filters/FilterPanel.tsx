@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
 import { X, ChevronRight } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { Course } from '../../types';
+import { useGetExpertiseListQuery } from '../../redux/rtk/expertise';
+import { Expertise } from '../../types/expertise';
 
 interface FilterPanelProps {
   isOpen: boolean;
@@ -20,12 +19,6 @@ interface FilterPanelProps {
   maxPrice: number;
 }
 
-interface Category {
-  id: string;
-  name: string;
-  created_at: string;
-}
-
 const LANGUAGES = [
   { code: 'all', name: 'All Languages' },
   { code: 'en', name: 'English' },
@@ -33,7 +26,6 @@ const LANGUAGES = [
 ];
 
 export default function FilterPanel({
-  isOpen,
   onClose,
   priceRange,
   setPriceRange,
@@ -48,31 +40,9 @@ export default function FilterPanel({
   onClearAll,
   maxPrice,
 }: FilterPanelProps) {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: expertises = [], isLoading: expertiseLoader } = useGetExpertiseListQuery();
 
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        setLoading(true);
-        const { data, error } = await supabase
-          .from('expertise_areas')
-          .select('*')
-          .order('name');
-
-        if (error) throw error;
-        setCategories(data || []);
-      } catch (err) {
-        console.error('Error loading categories:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadCategories();
-  }, []);
-
-  const hasActiveFilters = 
+  const hasActiveFilters =
     priceRange[0] !== 0 ||
     priceRange[1] !== 1000 ||
     selectedCategories.length > 0 ||
@@ -80,19 +50,9 @@ export default function FilterPanel({
     (selectedLanguages.length > 0 && !selectedLanguages.includes('all')) ||
     showEarlyBirdOnly;
 
-  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
-    if (selectedOptions.includes('all')) {
-      setSelectedLanguages(['all']);
-    } else {
-      setSelectedLanguages(selectedOptions);
-    }
-  };
-
   const handlePriceChange = (type: 'min' | 'max', value: string) => {
     const numValue = Number(value);
     if (isNaN(numValue) || numValue < 0 || numValue > maxPrice) return;
-    
     if (type === 'min') {
       setPriceRange([numValue, priceRange[1]]);
     } else {
@@ -231,9 +191,9 @@ export default function FilterPanel({
             <h3 className="font-semibold text-gray-900">Categories</h3>
           </div>
           <div className="flex flex-wrap gap-2 overflow-x-auto pb-2 -mx-2 px-2">
-            {categories.map((category) => (
+            {expertises?.map((category: Expertise) => (
               <button
-                key={category.id}
+                key={category?._id}
                 onClick={() => {
                   if (selectedCategories.includes(category.name)) {
                     setSelectedCategories(selectedCategories.filter(c => c !== category.name));
@@ -253,12 +213,12 @@ export default function FilterPanel({
                 {category.name}
               </button>
             ))}
-            {loading && (
+            {expertiseLoader && (
               <div className="flex items-center justify-center py-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600" />
               </div>
             )}
-          </div>            
+          </div>
         </div>
       </div>
     </div>
