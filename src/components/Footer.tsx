@@ -1,6 +1,6 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
-import { GraduationCap, Mail, Phone, MapPin } from 'lucide-react';
+import { Mail, Phone, MapPin } from 'lucide-react';
+import Logo from './Logo';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -12,16 +12,15 @@ export default function Footer() {
           {/* About Us Section */}
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <GraduationCap className="h-8 w-8 text-indigo-400" />
-              <span className="text-xl font-bold text-white">EduTech</span>
+              <Logo width={120} clickable to="/" />
             </div>
             <p className="mb-4">
-              EduTech is a leading provider of professional tech education, 
-              delivering high-impact training to individuals and organizations 
+              EduTech is a leading provider of professional tech education,
+              delivering high-impact training to individuals and organizations
               across Switzerland.
             </p>
             <p className="mb-6">
-              Our mission is to empower professionals with cutting-edge skills 
+              Our mission is to empower professionals with cutting-edge skills
               for the digital future.
             </p>
             <div className="space-y-2">
@@ -49,26 +48,26 @@ export default function Footer() {
             <h3 className="text-lg font-semibold text-white mb-4">Privacy Policy</h3>
             <div className="space-y-2">
               <p>
-                We are committed to protecting your personal data and ensuring 
+                We are committed to protecting your personal data and ensuring
                 transparency in our data processing practices.
               </p>
               <div className="space-y-2 mt-4">
                 <p className="text-sm">
                   <strong className="text-white">Data Protection:</strong>
                   <br />
-                  Your data is securely stored and processed in accordance with 
+                  Your data is securely stored and processed in accordance with
                   Swiss data protection laws.
                 </p>
                 <p className="text-sm">
                   <strong className="text-white">Cookie Policy:</strong>
                   <br />
-                  We use essential cookies to ensure the basic functionality of 
+                  We use essential cookies to ensure the basic functionality of
                   our website and analytics cookies with your consent.
                 </p>
                 <p className="text-sm">
                   <strong className="text-white">GDPR Compliance:</strong>
                   <br />
-                  We adhere to GDPR principles and respect your rights regarding 
+                  We adhere to GDPR principles and respect your rights regarding
                   your personal data.
                 </p>
                 <p className="text-sm">

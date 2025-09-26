@@ -6,6 +6,7 @@ import AddCourseButton from '../../components/admin/courses/AddCourseButton';
 import { supabase } from '../../lib/supabase';
 import type { Database } from '../../types/supabase';
 import { Pencil, Trash2, Plus, X, Check, AlertCircle, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown, Filter, Info, UserPlus, Users, Copy } from 'lucide-react';
+import { useGetCourseListQuery } from '../../redux/rtk/course';
 
 type Course = Database['public']['Tables']['courses']['Row'];
 type CourseStatus = 'all' | 'draft' | 'published' | 'archived';
@@ -38,7 +39,6 @@ export default function AdminCourses() {
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['all']);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [maxPrice, setMaxPrice] = useState(0);
-  const [isCreating, setIsCreating] = useState(false);
   const [activeForm, setActiveForm] = useState<{
     type: 'create' | 'edit';
     course?: Course;
@@ -57,11 +57,14 @@ export default function AdminCourses() {
   const [loadingAttendees, setLoadingAttendees] = useState(false);
   const [editingAttendee, setEditingAttendee] = useState<Attendee | null>(null);
   const [showDeleteAttendeeConfirm, setShowDeleteAttendeeConfirm] = useState<string | null>(null);
+  const { data: courses = [], isLoading: courseLoader } = useGetCourseListQuery({ page: 1, limit: 10 });
+
+  console.log(courses, "courses===>>>")
 
   // Search functionality
   const handleSearch = async (term: string) => {
     setSearchTerm(term);
-    
+
     if (!term.trim()) {
       setSearchResults([]);
       return;
@@ -123,14 +126,10 @@ export default function AdminCourses() {
     });
   };
 
-  useEffect(() => {
-    loadCourses();
-  }, []);
-
   const loadAttendees = async (courseId: string) => {
     try {
       setLoadingAttendees(true);
-      
+
       const { data, error } = await supabase
         .from('enrollments')
         .select('id, full_name, email, registration_date, payment_status, special_requirements')
@@ -162,7 +161,7 @@ export default function AdminCourses() {
   const handleEditAttendee = async (attendee: Attendee) => {
     try {
       setLoading(true);
-      
+
       const { error } = await supabase
         .from('enrollments')
         .update({
@@ -178,7 +177,7 @@ export default function AdminCourses() {
       // Update local state
       setAttendees(prev => ({
         ...prev,
-        [expandedCourseId!]: prev[expandedCourseId!].map(a => 
+        [expandedCourseId!]: prev[expandedCourseId!].map(a =>
           a.id === attendee.id ? attendee : a
         )
       }));
@@ -259,40 +258,6 @@ export default function AdminCourses() {
     }
   }, [courseList]);
 
-  const loadCourses = async () => {
-    try {
-      setLoading(true);
-      
-      const { data, error, count } = await supabase
-        .from('courses')
-        .select('*', { count: 'exact' })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Database error:', error);
-        throw error;
-      }
-      
-      if (!data) {
-        throw new Error('No data returned from database');
-      }
-
-      // If it's the first page, replace the list, otherwise append
-      setCourseList(prev => page === 0 ? data : [...prev, ...data]);
-      
-      // Update hasMore flag
-      setHasMore(count ? count > (page + 1) * PAGE_SIZE : false);
-
-    } catch (err) {
-      console.error('Error loading courses:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      showNotification('error', 'Failed to load courses', errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const loadMore = () => {
     setPage(prev => prev + 1);
   };
@@ -314,7 +279,7 @@ export default function AdminCourses() {
     }, {} as Record<string, number>);
   }, [courseList]);
 
-  const totalCourses = courseList.length;
+  const totalCourses = courses.length;
 
   // Clear all filters
   const clearAllFilters = () => {
@@ -348,23 +313,23 @@ export default function AdminCourses() {
 
   // Filter courses based on search and filter criteria
   const filteredCourseList = React.useMemo(() => {
-    let filtered = courseList.filter(course => {
-      const searchMatch = !searchTerm || searchResults.some(result => 
+    let filtered = courses.filter(course => {
+      const searchMatch = !searchTerm || searchResults.some(result =>
         result.courseId === course.id
       );
-      
+
       // Status filtering
       const statusMatch = selectedStatus === 'all' || course.status === selectedStatus;
 
       // Price range filtering
-      const priceMatch = maxPrice === 0 || (course.price >= priceRange[0] && course.price <= priceRange[1]);
-      
+      const priceMatch = maxPrice === 0 || (course?.price >= priceRange[0] && course?.price <= priceRange[1]);
+
       // Category filtering
-      const categoryMatch = selectedCategories.length === 0 || 
-        (course.meta_keywords && course.meta_keywords.some(category => 
+      const categoryMatch = selectedCategories.length === 0 ||
+        (course.meta_keywords && course.meta_keywords.some(category =>
           selectedCategories.includes(category)
         ));
-      
+
       // Date range filtering
       const courseDate = new Date(course.start_date);
       const startDate = dateRange[0] ? new Date(dateRange[0]) : new Date('1970-01-01');
@@ -373,11 +338,11 @@ export default function AdminCourses() {
 
       // Language filtering
       const languageMatch = selectedLanguages.includes('all') ||
-        selectedLanguages.includes(course.language);
+        selectedLanguages.includes(course?.language);
 
       return statusMatch && searchMatch && priceMatch && categoryMatch && dateMatch && languageMatch;
     });
-    
+
     // Apply sorting if active
     if (sortConfig.key) {
       filtered.sort((a, b) => {
@@ -392,23 +357,7 @@ export default function AdminCourses() {
     }
 
     return filtered;
-  }, [courseList, selectedStatus, searchResults, priceRange, selectedCategories, dateRange, selectedLanguages, sortConfig]);
-  const emptyNewCourse: Course = {
-    id: '',
-    title: '',
-    description: '',
-    thumbnail: '',
-    duration: '2 days',
-    time: '9:00 - 17:00',
-    startDate: '',
-    endDate: '',
-    price: 0,
-    instructor: '',
-    spotsAvailable: 14,
-    categories: [],
-    language: 'en',
-    skillLevel: 'beginner'
-  };
+  }, [courseList, selectedStatus, searchResults, priceRange, selectedCategories, dateRange, selectedLanguages, sortConfig, courses]);
 
   const showNotification = (
     type: 'success' | 'error',
@@ -418,90 +367,6 @@ export default function AdminCourses() {
   ) => {
     setNotification({ type, message, details });
     setTimeout(() => setNotification(null), duration);
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      if (!id) {
-        throw new Error('Course ID is required');
-      }
-
-      // Check if course exists and has enrollments
-      const { data: courseWithEnrollments, error: checkError } = await supabase
-        .from('courses')
-        .select(`
-          id,
-          title,
-          (enrollments:course_sections(count))
-        `)
-        .eq('id', id)
-        .single();
-
-      if (checkError) throw checkError;
-      if (!courseWithEnrollments) throw new Error('Course not found');
-
-      // If course has enrollments, archive instead of delete
-      if (courseWithEnrollments.enrollments.length > 0) {
-        const { error: updateError } = await supabase
-          .from('courses')
-          .update({
-            status: 'archived',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', id);
-
-        if (updateError) throw updateError;
-
-        setCourseList(prev => 
-          prev.map(course => 
-            course.id === id 
-              ? { ...course, status: 'archived' } 
-              : course
-          )
-        );
-        setShowDeleteConfirm(null);
-        showNotification(
-          'success',
-          'Course archived',
-          'Course has enrollments and was archived instead of deleted'
-        );
-        return;
-      }
-
-      // Delete the course
-      const { error } = await supabase
-        .from('courses')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        if (error.code === '23503') { // Foreign key violation
-          throw new Error('Cannot delete course: It has associated data');
-        }
-        throw error;
-      }
-
-      setCourseList(courseList.filter(course => course.id !== id));
-      setShowDeleteConfirm(null);
-      showNotification(
-        'success', 
-        'Course deleted successfully',
-        `"${courseWithEnrollments.title}" has been permanently deleted`
-      );
-    } catch (err) {
-      console.error('Error deleting course:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      showNotification(
-        'error',
-        'Failed to delete course',
-        errorMessage
-      );
-    } finally {
-      setLoading(false);
-    }
   };
 
   return (
@@ -592,6 +457,7 @@ export default function AdminCourses() {
               selectedLanguages={selectedLanguages}
               setSelectedLanguages={setSelectedLanguages}
               onClearAll={clearAllFilters}
+              maxPrice={0}
             />
           </div>
         </div>
@@ -603,19 +469,16 @@ export default function AdminCourses() {
             ${notification.type === 'success' ? 'bg-green-50' : 'bg-red-50'}
           `}>
             <div className="flex">
-              <AlertCircle className={`h-5 w-5 mr-2 ${
-                notification.type === 'success' ? 'text-green-400' : 'text-red-400'
-              }`} />
+              <AlertCircle className={`h-5 w-5 mr-2 ${notification.type === 'success' ? 'text-green-400' : 'text-red-400'
+                }`} />
               <div className="ml-3">
-                <h3 className={`text-sm font-medium ${
-                  notification.type === 'success' ? 'text-green-800' : 'text-red-800'
-                }`}>
+                <h3 className={`text-sm font-medium ${notification.type === 'success' ? 'text-green-800' : 'text-red-800'
+                  }`}>
                   {notification.message}
                 </h3>
                 {notification.details && (
-                  <p className={`mt-1 text-sm ${
-                    notification.type === 'success' ? 'text-green-700' : 'text-red-700'
-                  }`}>
+                  <p className={`mt-1 text-sm ${notification.type === 'success' ? 'text-green-700' : 'text-red-700'
+                    }`}>
                     {notification.details}
                   </p>
                 )}
@@ -629,11 +492,10 @@ export default function AdminCourses() {
             <UnifiedCourseForm
               course={activeForm.type === 'edit' ? activeForm.course : undefined}
               onSuccess={() => {
-                loadCourses();
                 setActiveForm(null);
-                showNotification('success', 
-                  activeForm.type === 'create' 
-                    ? 'Course created successfully' 
+                showNotification('success',
+                  activeForm.type === 'create'
+                    ? 'Course created successfully'
                     : 'Course updated successfully'
                 );
               }}
@@ -649,7 +511,7 @@ export default function AdminCourses() {
                 <tr>
                   <th
                     style={{ minWidth: '400px' }}
-                    scope="col" 
+                    scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer group"
                     onClick={() => handleSort('title')}
                   >
@@ -660,9 +522,9 @@ export default function AdminCourses() {
                       </span>
                     </div>
                   </th>
-                  <th 
+                  <th
                     style={{ minWidth: '200px' }}
-                    scope="col" 
+                    scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer group"
                     onClick={() => handleSort('start_date')}
                   >
@@ -673,9 +535,9 @@ export default function AdminCourses() {
                       </span>
                     </div>
                   </th>
-                  <th 
+                  <th
                     style={{ minWidth: '120px' }}
-                    scope="col" 
+                    scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer group"
                     onClick={() => handleSort('status')}
                   >
@@ -686,9 +548,9 @@ export default function AdminCourses() {
                       </span>
                     </div>
                   </th>
-                  <th 
+                  <th
                     style={{ minWidth: '150px' }}
-                    scope="col" 
+                    scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer group"
                     onClick={() => handleSort('instructor_id')}
                   >
@@ -699,9 +561,9 @@ export default function AdminCourses() {
                       </span>
                     </div>
                   </th>
-                  <th 
+                  <th
                     style={{ minWidth: '120px' }}
-                    scope="col" 
+                    scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer group"
                     onClick={() => handleSort('price')}
                   >
@@ -719,185 +581,182 @@ export default function AdminCourses() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredCourseList.map((course) => (
-                  <React.Fragment key={course.id}>
-                    <tr 
-                      onClick={() => handleRowClick(course.id)}
+                  <React.Fragment key={course._id}>
+                    <tr
+                      onClick={() => handleRowClick(course._id)}
                       className="cursor-pointer hover:bg-gray-50 transition-colors duration-150"
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="mr-2">
-                          {expandedCourseId === course.id ? (
-                            <ChevronUp className="h-4 w-4 text-gray-400" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4 text-gray-400" />
-                          )}
-                        </div>
-                        <div className="flex-shrink-0 h-10 w-10 mr-4">
-                          <img 
-                            className="h-10 w-10 rounded object-cover" 
-                            src={course.thumbnail_url || `https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100&h=100&fit=crop&q=80`} 
-                            alt={course.title} 
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = `https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=100&h=100&fit=crop&q=80`;
-                            }}
-                          />
-                        </div>
-                        <div className="max-w-[250px]">
-                          <div className="text-sm font-medium text-gray-900">{course.title}</div>
-                          <div className="text-sm text-gray-500 line-clamp-2">
-                            <div className="mb-2">{course.description || 'No description available'}</div>
-                            {course.meta_keywords && course.meta_keywords.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {course.meta_keywords.map((category, index) => (
-                                  <span
-                                    key={index}
-                                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800"
-                                  >
-                                    {category}
-                                  </span>
-                                ))}
-                              </div>
+                        <div className="flex items-center">
+                          <div className="mr-2">
+                            {expandedCourseId === course._id ? (
+                              <ChevronUp className="h-4 w-4 text-gray-400" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-gray-400" />
                             )}
                           </div>
+                          <div className="flex-shrink-0 h-10 w-10 mr-4">
+                            <img
+                              className="h-10 w-10 rounded object-cover"
+                              src={course.thumbnail_url || `https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100&h=100&fit=crop&q=80`}
+                              alt={course.title}
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = `https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=100&h=100&fit=crop&q=80`;
+                              }}
+                            />
+                          </div>
+                          <div className="max-w-[250px]">
+                            <div className="text-sm font-medium text-gray-900">{course.title}</div>
+                            <div className="text-sm text-gray-500 line-clamp-2">
+                              <div className="mb-2">{course.description || 'No description available'}</div>
+                              {course.meta_keywords && course.meta_keywords.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {course.meta_keywords.map((category, index) => (
+                                    <span
+                                      key={index}
+                                      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800"
+                                    >
+                                      {category}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm">
-                        <div className="font-medium text-gray-900">
-                          {(() => {
-                            const startDate = new Date(course.start_date);
-                            const endDate = new Date(course.end_date);
-                            return `${startDate.toLocaleDateString('en-GB', {
-                              day: '2-digit',
-                              month: 'short',
-                              year: 'numeric'
-                            })} - ${endDate.toLocaleDateString('en-GB', {
-                              day: '2-digit',
-                              month: 'short',
-                              year: 'numeric'
-                            })}`;
-                          })()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm">
+                          <div className="font-medium text-gray-900">
+                            {(() => {
+                              const startDate = new Date(course.start_date);
+                              const endDate = new Date(course.end_date);
+                              return `${startDate.toLocaleDateString('en-GB', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric'
+                              })} - ${endDate.toLocaleDateString('en-GB', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric'
+                              })}`;
+                            })()}
+                          </div>
+                          <div className="text-gray-500">
+                            {(() => {
+                              const formatTime = (time: string) => {
+                                const [hours, minutes] = time.split(':');
+                                return `${hours}:${minutes}`;
+                              };
+                              return `${formatTime(course.start_time)} - ${formatTime(course.end_time)}`;
+                            })()}
+                          </div>
                         </div>
-                        <div className="text-gray-500">
-                          {(() => {
-                            const formatTime = (time: string) => {
-                              const [hours, minutes] = time.split(':');
-                              return `${hours}:${minutes}`;
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${course.status === 'published' ? 'bg-green-100 text-green-800' :
+                          course.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
+                            course.status === 'archived' ? 'bg-purple-100 text-purple-800' :
+                              'bg-red-100 text-red-800'
+                          }`}>
+                          {course.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 bg-gray-100 h-2 rounded-full overflow-hidden w-24">
+                            <div
+                              className={`h-full rounded-full ${course.spots_available <= 3
+                                ? 'bg-red-500'
+                                : course.spots_available <= 7
+                                  ? 'bg-yellow-500'
+                                  : 'bg-green-500'
+                                }`}
+                              style={{ width: `${((14 - course.spots_available) / 14) * 100}%` }}
+                            />
+                          </div>
+                          <span className={`text-sm font-medium ${course.spots_available <= 3
+                            ? 'text-red-700'
+                            : course.spots_available <= 7
+                              ? 'text-yellow-700'
+                              : 'text-green-700'
+                            }`}>
+                            {course.spots_available}/14
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        CHF {course.price}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRowClick(course.id);
+                          }}
+                          className="p-2 text-gray-500 hover:text-indigo-600 transition-colors duration-200 rounded-full hover:bg-indigo-50 group relative"
+                          title="View Attendees"
+                        >
+                          <div className="relative">
+                            <Users className="h-5 w-5" />
+                            {attendees[course.id] && (
+                              <span className="absolute -top-2 -right-2 bg-indigo-600 text-white text-xs w-4 h-4 flex items-center justify-center rounded-full">
+                                {attendees[course.id].length}
+                              </span>
+                            )}
+                          </div>
+                          <span className="absolute left-1/2 -translate-x-1/2 -bottom-8 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
+                            View Attendees
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => setActiveForm({ type: 'edit', course })}
+                          className="inline-flex p-2 text-[#2196F3] hover:text-[#1976D2] transition-colors duration-200 rounded-full hover:bg-blue-50 group relative"
+                          aria-label="Edit Course"
+                        >
+                          <Pencil className="h-5 w-5" />
+                          <span className="absolute left-1/2 -translate-x-1/2 -bottom-8 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
+                            Edit Course
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            const courseCopy = {
+                              ...course,
+                              id: undefined,
+                              title: `${course.title} (Copy)`,
+                              slug: undefined,
+                              spots_available: 14,
+                              status: 'draft',
+                              created_at: undefined,
+                              updated_at: undefined,
+                              version: undefined,
+                              is_latest: undefined
                             };
-                            return `${formatTime(course.start_time)} - ${formatTime(course.end_time)}`;
-                          })()}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        course.status === 'published' ? 'bg-green-100 text-green-800' :
-                        course.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
-                        course.status === 'archived' ? 'bg-purple-100 text-purple-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {course.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-gray-100 h-2 rounded-full overflow-hidden w-24">
-                          <div 
-                            className={`h-full rounded-full ${
-                              course.spots_available <= 3 
-                                ? 'bg-red-500' 
-                                : course.spots_available <= 7 
-                                ? 'bg-yellow-500' 
-                                : 'bg-green-500'
-                            }`}
-                            style={{ width: `${((14 - course.spots_available) / 14) * 100}%` }}
-                          />
-                        </div>
-                        <span className={`text-sm font-medium ${
-                          course.spots_available <= 3 
-                            ? 'text-red-700' 
-                            : course.spots_available <= 7 
-                            ? 'text-yellow-700' 
-                            : 'text-green-700'
-                        }`}>
-                          {course.spots_available}/14
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      CHF {course.price}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRowClick(course.id);
-                        }}
-                        className="p-2 text-gray-500 hover:text-indigo-600 transition-colors duration-200 rounded-full hover:bg-indigo-50 group relative"
-                        title="View Attendees"
-                      >
-                        <div className="relative">
-                          <Users className="h-5 w-5" />
-                          {attendees[course.id] && (
-                            <span className="absolute -top-2 -right-2 bg-indigo-600 text-white text-xs w-4 h-4 flex items-center justify-center rounded-full">
-                              {attendees[course.id].length}
-                            </span>
-                          )}
-                        </div>
-                        <span className="absolute left-1/2 -translate-x-1/2 -bottom-8 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
-                          View Attendees
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => setActiveForm({ type: 'edit', course })}
-                        className="inline-flex p-2 text-[#2196F3] hover:text-[#1976D2] transition-colors duration-200 rounded-full hover:bg-blue-50 group relative"
-                        aria-label="Edit Course"
-                      >
-                        <Pencil className="h-5 w-5" />
-                        <span className="absolute left-1/2 -translate-x-1/2 -bottom-8 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
-                          Edit Course
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          const courseCopy = {
-                            ...course,
-                            id: undefined,
-                            title: `${course.title} (Copy)`,
-                            slug: undefined,
-                            spots_available: 14,
-                            status: 'draft',
-                            created_at: undefined,
-                            updated_at: undefined,
-                            version: undefined,
-                            is_latest: undefined
-                          };
-                          setActiveForm({ type: 'create', course: courseCopy });
-                        }}
-                        className="inline-flex p-2 text-[#4CAF50] hover:text-[#388E3C] transition-colors duration-200 rounded-full hover:bg-green-50 group relative"
-                        aria-label="Copy Course"
-                      >
-                        <Copy className="h-5 w-5" />
-                        <span className="absolute left-1/2 -translate-x-1/2 -bottom-8 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
-                          Copy Course
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => setShowDeleteConfirm(course.id)}
-                        className="inline-flex p-2 text-[#DC3545] hover:text-[#C82333] transition-colors duration-200 rounded-full hover:bg-red-50 group relative"
-                        aria-label="Delete Course"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                        <span className="absolute left-1/2 -translate-x-1/2 -bottom-8 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
-                          Delete Course
-                        </span>
-                      </button>
-                    </td>
+                            setActiveForm({ type: 'create', course: courseCopy });
+                          }}
+                          className="inline-flex p-2 text-[#4CAF50] hover:text-[#388E3C] transition-colors duration-200 rounded-full hover:bg-green-50 group relative"
+                          aria-label="Copy Course"
+                        >
+                          <Copy className="h-5 w-5" />
+                          <span className="absolute left-1/2 -translate-x-1/2 -bottom-8 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
+                            Copy Course
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => setShowDeleteConfirm(course.id)}
+                          className="inline-flex p-2 text-[#DC3545] hover:text-[#C82333] transition-colors duration-200 rounded-full hover:bg-red-50 group relative"
+                          aria-label="Delete Course"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                          <span className="absolute left-1/2 -translate-x-1/2 -bottom-8 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
+                            Delete Course
+                          </span>
+                        </button>
+                      </td>
                     </tr>
-                    {expandedCourseId === course.id && (
+                    {expandedCourseId === course._id && (
                       <tr>
                         <td colSpan={6} className="px-6 py-4 bg-gray-50">
                           <div className="animate-fadeIn">
@@ -938,15 +797,14 @@ export default function AdminCourses() {
                                     <tbody className="bg-white divide-y divide-gray-200">
                                       {attendees[course.id].map((attendee) => (
                                         <tr key={attendee.id} className="hover:bg-gray-50 group">
-                                          <td className={`px-4 py-2 text-sm ${
-                                            searchResults.some(r => 
-                                              r.courseId === course.id && 
-                                              r.matchType === 'attendee' && 
-                                              r.matchedAttendeeIds?.includes(attendee.id)
-                                            )
-                                              ? 'bg-yellow-50 font-medium'
-                                              : 'text-gray-900'
-                                          }`}>
+                                          <td className={`px-4 py-2 text-sm ${searchResults.some(r =>
+                                            r.courseId === course.id &&
+                                            r.matchType === 'attendee' &&
+                                            r.matchedAttendeeIds?.includes(attendee.id)
+                                          )
+                                            ? 'bg-yellow-50 font-medium'
+                                            : 'text-gray-900'
+                                            }`}>
                                             {editingAttendee?.id === attendee.id ? (
                                               <input
                                                 type="text"
@@ -994,13 +852,12 @@ export default function AdminCourses() {
                                                 <option value="failed">Failed</option>
                                               </select>
                                             ) : (
-                                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                                attendee.paymentStatus === 'paid'
-                                                  ? 'bg-green-100 text-green-800'
-                                                  : attendee.paymentStatus === 'pending'
+                                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${attendee.paymentStatus === 'paid'
+                                                ? 'bg-green-100 text-green-800'
+                                                : attendee.paymentStatus === 'pending'
                                                   ? 'bg-yellow-100 text-yellow-800'
                                                   : 'bg-red-100 text-red-800'
-                                              }`}>
+                                                }`}>
                                                 {attendee.paymentStatus}
                                               </span>
                                             )}
@@ -1119,35 +976,35 @@ export default function AdminCourses() {
                     )}
                   </React.Fragment>
                 ))}
-                </tbody>
-              </table>
-              {hasMore && (
-                <div className="mt-4 text-center">
-                  <button
-                    onClick={loadMore}
-                    disabled={loading}
-                    className={`
+              </tbody>
+            </table>
+            {hasMore && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={loadMore}
+                  disabled={courseLoader}
+                  className={`
                       inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm
-                      ${loading
-                        ? 'bg-gray-300 cursor-not-allowed'
-                        : 'text-white bg-indigo-600 hover:bg-indigo-700'
-                      }
+                      ${courseLoader
+                      ? 'bg-gray-300 cursor-not-allowed'
+                      : 'text-white bg-indigo-600 hover:bg-indigo-700'
+                    }
                     `}
-                  >
-                    {loading ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Loading...
-                      </>
-                    ) : (
-                      'Load More'
-                    )}
-                  </button>
-                </div>
-              )}
+                >
+                  {courseLoader ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Loading...
+                    </>
+                  ) : (
+                    'Load More'
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
