@@ -1,32 +1,35 @@
 import { GetServiceListRequest, Service } from "../../types/services";
-import { api } from "./rtkApi"
+import { api } from "./rtkApi";
 
 const enhancedApi = api.enhanceEndpoints({
-    addTagTypes: ['ServicesList'],
+    addTagTypes: ["getServiceList"],
 });
 
-
-export const courseApi = enhancedApi.injectEndpoints({
+export const serviceApi = enhancedApi.injectEndpoints({
     endpoints: (builder) => ({
-        getCourseList: builder.query<Service[], GetServiceListRequest | void>({
+        getServiceList: builder.query<Service[], GetServiceListRequest | void>({
             query: (params) => ({
-                url: '/service/list',
-                method: 'GET',
+                url: "/service/list",
+                method: "GET",
                 params,
             }),
-            providesTags: ['ServicesList'],
-            transformResponse: (res: Service[]) => res
+            providesTags: ["getServiceList"],
+            transformResponse: (res: Service[]) => res,
         }),
 
-        // POST /courses
         createService: builder.mutation<Service, Partial<Service>>({
             query: (body) => ({
-                url: '/services',
-                method: 'POST',
+                url: "/services",
+                method: "POST",
                 body,
             }),
-            invalidatesTags: ['ServicesList'],
+            invalidatesTags: ["getServiceList"],
         }),
     }),
     overrideExisting: false,
 });
+
+export const {
+    useGetServiceListQuery,
+    useCreateServiceMutation,
+} = serviceApi;
